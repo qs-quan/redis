@@ -48,5 +48,27 @@ public class cacheTest {
         Thread.currentThread().join();
     }
 
+    @Test
+    public void getOrderByTemplate() throws Exception {
+
+        for (int i = 0; i < threadNum; i++) {
+
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        countDownLatch.await();
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                    orderController.getOrderByIdByTemplate("1");
+                }
+            }).start();
+
+            countDownLatch.countDown();
+        }
+        Thread.currentThread().join();
+    }
+
 
 }

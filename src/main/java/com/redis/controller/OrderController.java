@@ -148,7 +148,7 @@ public class OrderController {
                 }
             }
 
-            fairLock.lock(1,TimeUnit.SECONDS);
+            fairLock.lock(1, TimeUnit.SECONDS);
 
             order = redisTemplate.opsForValue().get(id);
             if (order != null) {
@@ -158,7 +158,7 @@ public class OrderController {
                 } else {
                     return new Order(id, "get order from redis : 查询无结果");
                 }
-            }else {
+            } else {
                 System.err.println("get order from db");
                 Order dbOrder = orderService.getOrderById(id);
                 if (dbOrder != null) {
@@ -179,6 +179,20 @@ public class OrderController {
             fairLock.unlock();
         }
 
+    }
+
+
+    /**
+     * 缓存穿透解决：布隆过滤器
+     * 代码维护困难 新增数据时 bloomFilter要新增，删除大量数据时 要新建bloomFilter
+     *
+     * @param id
+     * @return
+     */
+    @RequestMapping("/getOrderByIdByTemplate")
+    @ResponseBody
+    public Order getOrderByIdByTemplate(String id) {
+        return orderService.getOrderByIdByTemplate(id);
     }
 
 }

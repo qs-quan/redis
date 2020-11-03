@@ -1,10 +1,13 @@
 package com.redis.service;
 
 import com.redis.entity.Order;
+import com.redis.template.CacheTemplate;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Supplier;
 
 /**
  * ${DESCRIPTION}
@@ -15,6 +18,12 @@ import java.util.List;
 @Service
 public class OrderService {
 
+    @Autowired
+    CacheTemplate cacheTemplate;
+
+
+    @Autowired
+    OrderService orderService;
 
     public Order getOrderById(String id) {
         if (id.equals("1") || id.equals("2") || id.equals("3") || id.equals("4")) {
@@ -36,4 +45,17 @@ public class OrderService {
             add(new Order("4", "400台手机"));
         }};
     }
+
+    public Order getOrderByIdByTemplate(String id) {
+
+        return cacheTemplate.redisFindCache(id, new Supplier<Order>() {
+            @Override
+            public Order get() {
+                return orderService.getOrderById(id);
+            }
+        });
+
+
+    }
+
 }
