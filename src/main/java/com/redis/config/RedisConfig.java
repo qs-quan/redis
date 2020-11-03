@@ -1,5 +1,10 @@
 package com.redis.config;
 
+import org.redisson.Redisson;
+import org.redisson.api.RedissonClient;
+import org.redisson.config.Config;
+import org.redisson.config.SingleServerConfig;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.context.annotation.Bean;
@@ -25,6 +30,12 @@ import java.time.Duration;
 @Configuration
 @EnableCaching
 public class RedisConfig {
+
+    @Value("${spring.redis.host}")
+    private String host;
+    @Value("${spring.redis.port}")
+    private String port;
+
 
     @Bean
     public RedisTemplate redisTemplate(RedisConnectionFactory redisConnectionFactory, RedisKeyPrefixProperties prefix) {
@@ -73,6 +84,16 @@ public class RedisConfig {
                 .builder(RedisCacheWriter.nonLockingRedisCacheWriter(redisConnectionFactory))
                 .cacheDefaults(configuration)
                 .build();
+    }
+
+    @Bean(destroyMethod = "shutdown")
+    public RedissonClient redisson() {
+        Config config = new Config();
+        SingleServerConfig singleServerConfig = config.useSingleServer();
+        singleServerConfig.setAddress("redis://" + host + ":" + port);
+        singleServerConfig.setTimeout(10000);
+        singleServerConfig.setDatabase(0);
+        return Redisson.create(config);
     }
 
 
