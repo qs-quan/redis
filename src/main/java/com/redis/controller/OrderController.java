@@ -3,6 +3,8 @@ package com.redis.controller;
 import com.redis.bloom.BloomFilter;
 import com.redis.entity.Order;
 import com.redis.service.OrderService;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.redisson.spring.cache.NullValue;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import javax.annotation.PostConstruct;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  * ${DESCRIPTION}
@@ -91,13 +94,13 @@ public class OrderController {
             Order dbOrder = orderService.getOrderById(id);
             if (dbOrder != null) {
                 System.err.println("get order from db");
-                redisTemplate.opsForValue().set(id, order);
+                redisTemplate.opsForValue().set(id, dbOrder);
             } else {
                 System.err.println("get order from db : 查询无结果");
                 redisTemplate.opsForValue().set(id, new NullValue());
             }
             return dbOrder;
-        } catch (Exception e){
+        } catch (Exception e) {
             // 数据库兜底
             System.err.println("get order from db");
             Order dbOrder = orderService.getOrderById(id);
@@ -109,6 +112,9 @@ public class OrderController {
 
     @Autowired
     BloomFilter bloomFilter;
+
+    @Autowired
+    RedissonClient redisson;
 
     @PostConstruct
     private void init() {
@@ -127,32 +133,50 @@ public class OrderController {
     @ResponseBody
     public Order getOrderById2(String id) {
         if (!bloomFilter.mightContain(id)) {
-            return new Order(id,"不要攻击我，数据库没这条数据");
+            return new Order(id, "不要攻击我，数据库没这条数据");
         }
 
+        RLock fairLock = redisson.getFairLock(id);
         try {
             Object order = redisTemplate.opsForValue().get(id);
             if (order != null) {
                 if (order instanceof Order) {
                     System.err.println("get order from redis");
                     return (Order) order;
+                } else {
+                    return new Order(id, "get order from redis : 查询无结果");
                 }
-
             }
 
-            System.err.println("get order from db");
-            Order dbOrder = orderService.getOrderById(id);
-            if (dbOrder != null) {
-                redisTemplate.opsForValue().set(id, order);
-            } else {
-                redisTemplate.opsForValue().set(id, new NullValue());
+            fairLock.lock(1,TimeUnit.SECONDS);
+
+            order = redisTemplate.opsForValue().get(id);
+            if (order != null) {
+                if (order instanceof Order) {
+                    System.err.println("get order from redis");
+                    return (Order) order;
+                } else {
+                    return new Order(id, "get order from redis : 查询无结果");
+                }
+            }else {
+                System.err.println("get order from db");
+                Order dbOrder = orderService.getOrderById(id);
+                if (dbOrder != null) {
+                    redisTemplate.opsForValue().set(id, dbOrder);
+                } else {
+                    redisTemplate.opsForValue().set(id, new NullValue());
+                }
+                return dbOrder;
             }
-            return dbOrder;
+
+
         } catch (Exception e) {
             // 数据库兜底
             System.err.println("get order from db");
             Order dbOrder = orderService.getOrderById(id);
             return dbOrder;
+        } finally {
+            fairLock.unlock();
         }
 
     }
