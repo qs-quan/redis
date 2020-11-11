@@ -57,6 +57,9 @@ public class ZsetTest {
 
         System.out.println("====================");
 
+        // 60-80分 排名第一的值
+        redisTemplate.opsForZSet().rangeByScore("student",60,80,0,1);
+
 
         Set student4 = redisTemplate.opsForZSet().rangeByLex("student", new RedisZSetCommands.Range());
 
